@@ -1,0 +1,14 @@
+{
+  "modules": [
+    {
+      "name": "module1",
+      "namespace": "",
+      "definition": "//FIRST SCENARIO\nimport {main, billing} from ../../../../indexes;\n\n//SPL2 SYNTAX\n$target_data = from main | where sourcetype=\"aws:cloudtrail\" AND like(errorCode, \"%\")\n\n//Now, add a chained search!\n$cleanup_eventsource = from $target_data | rex field=eventSource mode=sed \"s/.amazonaws.com//g\"\n\n//Keep chaining, and add some post-processing filters.\n$user_eventSource_errors = from $cleanup_eventsource | stats count() as num_events by eventSource, userIdentity.userName | where num_events > 1000 | sort - num_events\n\n//Now write the same thing, but this time using SQL syntax in SPL2!\n$sql_version = SELECT count() AS num_events, eventSource, userIdentity.userName\nFROM main\nWHERE sourcetype=\"aws:cloudtrail\" AND errorCode!=null\nGROUP BY eventSource, userIdentity.userName\nHAVING num_events > 1000\nORDER BY num_events DESC\n| rex field=eventSource mode=sed \"s/.amazonaws.com//g\"\n\n//Use SPL2 with embedded SPL.\n$spl1_embedded = `| search index=main sourcetype=eventgen | iplocation sourceIPAddress | stats count by City`\n\nexport $sql_version as event_count_cleaned_source",
+      "_vscode": {
+        "metadata": {},
+        "outputs": []
+      }
+    }
+  ],
+  "app": "apps.search"
+}
